@@ -14,7 +14,6 @@ import pathlib
 
 import joblib
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
 
 from training.evaluate import evaluate_model
@@ -39,19 +38,33 @@ def train(
     """
     Load a feature parquet file, train an XGBoost model, evaluate, and save.
 
+    Uses a temporal split (earliest 80% → train, latest 20% → test) to
+    prevent future data leaking into training.
+
     Returns
     -------
     dict of evaluation metrics on the held-out test set.
     """
     df = pd.read_parquet(features_path)
-    feature_cols = [c for c in df.columns if c != label_col]
 
-    X = df[feature_cols].values
-    y = df[label_col].values
+    # Temporal split — sort by date if present, otherwise fall back to row order
+    if "date" in df.columns:
+        df = df.sort_values("date").reset_index(drop=True)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=42
-    )
+    # Exclude non-feature columns
+    exclude_cols = {label_col, "date"}
+    feature_cols = [c for c in df.columns if c not in exclude_cols]
+
+    split_idx = int(len(df) * (1 - test_size))
+    train_df = df.iloc[:split_idx]
+    test_df  = df.iloc[split_idx:]
+
+    X_train = train_df[feature_cols].values
+    y_train = train_df[label_col].values
+    X_test  = test_df[feature_cols].values
+    y_test  = test_df[label_col].values
+
+    print(f"[train] Train: {len(train_df)} samples | Test: {len(test_df)} samples")
 
     model = XGBRegressor(**DEFAULT_PARAMS)
     model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)

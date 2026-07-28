@@ -18,12 +18,43 @@ Environment variables required:
 import json
 import os
 import traceback
+import tempfile
+
+import numpy as np
 
 from extract import extract_all
+from ingestion.sentinel_stac import get_asset_urls
+from processing.raster_clip import load_band_array
+from processing.cloud_mask import build_cloud_mask
 from features.satellite_features import extract_satellite_features
 from features.weather_features import build_weather_features
 from features.build_features import build_feature_vector
 from inference.predictor import predict
+
+
+def _load_bands(assets: dict, geometry: dict) -> tuple[dict, np.ndarray] | tuple[None, None]:
+    """
+    Download and clip all required bands for one Sentinel-2 scene.
+
+    Returns (bands_dict, scl_array) or (None, None) if any band is missing.
+    """
+    required = ["red", "nir", "red_edge", "swir1", "swir2", "scene_classification"]
+    if not all(k in assets for k in required):
+        return None, None
+
+    try:
+        bands = {
+            "red":      load_band_array(assets["red"],      geometry),
+            "nir":      load_band_array(assets["nir"],      geometry),
+            "red_edge": load_band_array(assets["red_edge"], geometry),
+            "swir1":    load_band_array(assets["swir1"],    geometry),
+            "swir2":    load_band_array(assets["swir2"],    geometry),
+        }
+        scl = load_band_array(assets["scene_classification"], geometry, scale=1.0).astype(np.uint8)
+        return bands, scl
+    except Exception as exc:
+        print(f"[handler] Band download failed: {exc}")
+        return None, None
 
 
 def handler(event: dict, context) -> dict:
@@ -42,15 +73,25 @@ def handler(event: dict, context) -> dict:
         raw = extract_all(lat=lat, lon=lon, start_date=start_date, end_date=end_date)
 
         # --- Build features -------------------------------------------------
-        weather_feats = build_weather_features(raw["weather"], ref_date=end_date)
+        scene_date = raw["sentinel"][0]["date"][:10] if raw["sentinel"] else end_date
+        weather_feats = build_weather_features(raw["weather"], ref_date=scene_date)
         soil_feats    = raw["soil"]
 
-        # Use the most recent non-null Sentinel scene
+        # Use the most recent valid Sentinel-2 scene
+        from extract import _point_geometry
+        geometry  = _point_geometry(lat, lon)
         sat_feats = {}
+
         for scene in raw["sentinel"]:
-            # TODO: download bands, clip, and call extract_satellite_features
-            # Placeholder — real implementation downloads assets via raster_clip
-            pass
+            assets = scene.get("assets", {})
+            bands, scl = _load_bands(assets, geometry)
+            if bands is None:
+                continue
+            feats = extract_satellite_features(bands, scl)
+            if feats is not None:
+                sat_feats = feats
+                print(f"[handler] Satellite features from scene {scene['id']}")
+                break  # use the first (most recent) valid scene
 
         feature_vec = build_feature_vector(sat_feats, weather_feats, soil_feats,
                                            metadata={"doy": _doy(end_date)})

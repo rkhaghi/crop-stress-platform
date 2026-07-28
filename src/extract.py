@@ -19,8 +19,9 @@ import sys
 from typing import Optional
 
 # Ensure src/ is on the path when running interactively or as a script
-_src_dir = os.path.dirname(__file__) if "__file__" in dir() else os.path.abspath("src")
-sys.path.insert(0, _src_dir)
+_src_dir = os.path.dirname(os.path.abspath(__file__)) if "__file__" in dir() else os.path.abspath("src")
+if _src_dir not in sys.path:
+    sys.path.insert(0, _src_dir)
 
 from ingestion.weather import fetch_weather
 from ingestion.soilgrids import fetch_soil
@@ -149,4 +150,4 @@ if __name__ == "__main__":
     else:
         print(json.dumps(result, indent=2, default=str))
 
-# %%
+

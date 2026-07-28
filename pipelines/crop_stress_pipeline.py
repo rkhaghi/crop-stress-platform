@@ -57,9 +57,43 @@ def run_pipeline(
                       max_cloud=max_cloud)
 
     # Step 2 — Features
-    weather_feats = build_weather_features(raw["weather"], ref_date=end_date)
+    scene_date = raw["sentinel"][0]["date"][:10] if raw["sentinel"] else end_date
+    weather_feats = build_weather_features(raw["weather"], ref_date=scene_date)
     soil_feats    = raw["soil"]
-    sat_feats     = {}  # extend with extract_satellite_features when bands are downloaded
+
+    # Satellite features — use the most recent valid scene
+    from extract import _point_geometry
+    from ingestion.sentinel_stac import get_asset_urls
+    from processing.raster_clip import load_band_array
+    from processing.cloud_mask import build_cloud_mask
+    from features.satellite_features import extract_satellite_features
+    import numpy as np
+
+    geometry  = _point_geometry(lat, lon)
+    sat_feats = {}
+
+    for scene in raw["sentinel"]:
+        assets = scene.get("assets", {})
+        required = ["red", "nir", "red_edge", "swir1", "swir2", "scene_classification"]
+        if not all(k in assets for k in required):
+            continue
+        try:
+            bands = {
+                "red":      load_band_array(assets["red"],      geometry),
+                "nir":      load_band_array(assets["nir"],      geometry),
+                "red_edge": load_band_array(assets["red_edge"], geometry),
+                "swir1":    load_band_array(assets["swir1"],    geometry),
+                "swir2":    load_band_array(assets["swir2"],    geometry),
+            }
+            scl   = load_band_array(assets["scene_classification"], geometry, scale=1.0).astype(np.uint8)
+            feats = extract_satellite_features(bands, scl)
+            if feats is not None:
+                sat_feats = feats
+                print(f"[pipeline] Satellite features from scene {scene['id']}")
+                break
+        except Exception as exc:
+            print(f"[pipeline] Scene {scene['id']} failed: {exc}")
+            continue
 
     from datetime import date
     doy = date.fromisoformat(end_date).timetuple().tm_yday
