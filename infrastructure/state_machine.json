@@ -1,0 +1,101 @@
+{
+  "Comment": "TerraSignal Crop Stress — batch ingestion and prediction pipeline",
+  "StartAt": "Ingest",
+  "States": {
+    "Ingest": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${InferenceFunction}",
+        "Payload": {
+          "step": "ingest",
+          "lat.$": "$.lat",
+          "lon.$": "$.lon",
+          "start_date.$": "$.start_date",
+          "end_date.$": "$.end_date"
+        }
+      },
+      "ResultPath": "$.ingest_result",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "BuildFeatures"
+    },
+    "BuildFeatures": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${InferenceFunction}",
+        "Payload": {
+          "step": "features",
+          "ingest_result.$": "$.ingest_result"
+        }
+      },
+      "ResultPath": "$.feature_result",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 1.5
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "Predict"
+    },
+    "Predict": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${InferenceFunction}",
+        "Payload": {
+          "step": "predict",
+          "feature_result.$": "$.feature_result"
+        }
+      },
+      "ResultPath": "$.prediction",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 1.5
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "PipelineSucceeded"
+    },
+    "PipelineSucceeded": {
+      "Type": "Succeed"
+    },
+    "PipelineFailed": {
+      "Type": "Fail",
+      "Error": "PipelineError",
+      "Cause": "One or more pipeline steps failed."
+    }
+  }
+}

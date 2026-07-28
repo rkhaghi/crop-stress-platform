@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Description: TerraSignal Crop Stress Platform — SAM template
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 300
+    MemorySize: 1024
+    Environment:
+      Variables:
+        MODEL_PATH: !Sub "s3://${ModelBucket}/models/crop_stress_model.json"
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  ModelBucket:
+    Type: String
+    Description: S3 bucket where the trained model is stored.
+
+Resources:
+
+  # ── S3 ──────────────────────────────────────────────────────────────────
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "terrasignal-data-${Environment}-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # ── Lambda — Inference ──────────────────────────────────────────────────
+  InferenceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "terrasignal-inference-${Environment}"
+      CodeUri: src/
+      Handler: inference.handler.handler
+      Description: Crop stress prediction endpoint
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ModelBucket
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /predict
+            Method: POST
+            RestApiId: !Ref CropStressApi
+
+  # ── API Gateway ─────────────────────────────────────────────────────────
+  CropStressApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "terrasignal-api-${Environment}"
+      StageName: !Ref Environment
+      Auth:
+        ApiKeyRequired: true
+
+  # ── Step Functions — Pipeline ────────────────────────────────────────────
+  PipelineStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub "terrasignal-pipeline-${Environment}"
+      DefinitionString: !Sub |
+        ${file(infrastructure/state_machine.json)}
+      RoleArn: !GetAtt StepFunctionsRole.Arn
+
+  # ── IAM ─────────────────────────────────────────────────────────────────
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeLambda
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt InferenceFunction.Arn
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${CropStressApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/predict"
+  InferenceFunctionArn:
+    Value: !GetAtt InferenceFunction.Arn
+  DataBucketName:
+    Value: !Ref DataBucket
