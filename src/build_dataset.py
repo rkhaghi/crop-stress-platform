@@ -88,8 +88,8 @@ def _extract_row(row: pd.Series) -> dict | None:
     """
     lat        = float(row["lat"])
     lon        = float(row["lon"])
-    start_date = str(row["start_date"])
-    end_date   = str(row["end_date"])
+    start_date = pd.to_datetime(str(row["start_date"]), dayfirst=True).strftime("%Y-%m-%d")
+    end_date   = pd.to_datetime(str(row["end_date"]),   dayfirst=True).strftime("%Y-%m-%d")
     label      = float(row["stress_index"])
 
     print(f"  → lat={lat}, lon={lon}  {start_date} / {end_date}")
