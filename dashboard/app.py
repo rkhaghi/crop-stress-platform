@@ -18,6 +18,7 @@ import plotly.graph_objects as go
 from extract import extract_all
 from features.weather_features import build_weather_features
 from features.build_features import build_feature_vector
+from inference.predictor import predict
 
 st.set_page_config(page_title="TerraSignal — Crop Stress Monitor", layout="wide")
 st.title("🌾 TerraSignal — Crop Stress Monitor")
@@ -32,6 +33,11 @@ with st.sidebar:
     start_date = st.date_input("Start date",  value=pd.Timestamp("2024-04-01"))
     end_date   = st.date_input("End date",    value=pd.Timestamp("2024-06-30"))
     max_cloud  = st.slider("Max cloud cover (%)", 0, 100, 30)
+    st.divider()
+    st.header("Model")
+    model_path = st.text_input(
+        "Model path", value="", placeholder="models/crop_stress_model.json"
+    )
     run_btn    = st.button("Run analysis", type="primary")
 
 # ---------------------------------------------------------------------------
@@ -86,5 +92,35 @@ if run_btn:
         st.dataframe(scenes_df, use_container_width=True)
     else:
         st.info("No Sentinel-2 scenes found for this location and period.")
+
+    # --- Stress prediction --------------------------------------------------
+    if model_path:
+        st.subheader("Crop Stress Prediction")
+        try:
+            ref_date      = end_date.isoformat()
+            weather_feats = build_weather_features(raw["weather"], ref_date=ref_date)
+            soil_feats    = raw["soil"]
+            doy           = end_date.timetuple().tm_yday
+            feature_vec   = build_feature_vector(
+                {}, weather_feats, soil_feats, metadata={"doy": doy}
+            )
+            result = predict(feature_vec, model_path=model_path)
+
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.metric("Stress Index", f"{result['stress_index']:.3f}")
+            with col_b:
+                colour = {"low": "\U0001f7e2", "moderate": "\U0001f7e1", "high": "\U0001f534"}.get(
+                    result["stress_level"], ""
+                )
+                st.metric("Stress Level", f"{colour} {result['stress_level'].capitalize()}")
+            st.caption(
+                "Prediction uses weather + soil features only "
+                "(satellite bands are not downloaded in dashboard mode)."
+            )
+        except Exception as exc:
+            st.error(f"Prediction failed: {exc}")
 else:
     st.info("Set your location and date range in the sidebar, then click **Run analysis**.")
+
+# %%

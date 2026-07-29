@@ -1,4 +1,5 @@
 import requests
+import time
 
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 
@@ -11,8 +12,16 @@ DAILY_VARIABLES = [
     "soil_moisture_0_to_7cm_mean",
 ]
 
+_MAX_RETRIES = 3
 
-def fetch_weather(lat: float, lon: float, start_date: str, end_date: str) -> dict:
+
+def fetch_weather(
+    lat: float,
+    lon: float,
+    start_date: str,
+    end_date: str,
+    retries: int = _MAX_RETRIES,
+) -> dict:
     params = {
         "latitude": lat,
         "longitude": lon,
@@ -21,6 +30,16 @@ def fetch_weather(lat: float, lon: float, start_date: str, end_date: str) -> dic
         "daily": ",".join(DAILY_VARIABLES),
         "timezone": "UTC",
     }
-    response = requests.get(ARCHIVE_URL, params=params, timeout=30)
-    response.raise_for_status()
-    return response.json()["daily"]
+    for attempt in range(1, retries + 1):
+        try:
+            response = requests.get(ARCHIVE_URL, params=params, timeout=30)
+            response.raise_for_status()
+            return response.json()["daily"]
+        except (requests.ConnectionError, requests.Timeout, requests.HTTPError) as exc:
+            if attempt == retries:
+                raise RuntimeError(
+                    f"Weather fetch failed after {retries} attempts."
+                ) from exc
+            wait = 2 ** attempt
+            print(f"[weather] Attempt {attempt} failed ({exc}). Retrying in {wait}s\u2026")
+            time.sleep(wait)

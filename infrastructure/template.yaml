@@ -68,8 +68,9 @@ Resources:
     Type: AWS::StepFunctions::StateMachine
     Properties:
       StateMachineName: !Sub "terrasignal-pipeline-${Environment}"
-      DefinitionString: !Sub |
-        ${file(infrastructure/state_machine.json)}
+      DefinitionUri: infrastructure/state_machine.json
+      DefinitionSubstitutions:
+        InferenceFunction: !GetAtt InferenceFunction.Arn
       RoleArn: !GetAtt StepFunctionsRole.Arn
 
   # ── IAM ─────────────────────────────────────────────────────────────────

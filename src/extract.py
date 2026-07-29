@@ -32,7 +32,7 @@ from ingestion.sentinel_stac import search_items, get_asset_urls
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _point_geometry(lat: float, lon: float, buffer_deg: float = 0.01) -> dict:
+def point_geometry(lat: float, lon: float, buffer_deg: float = 0.01) -> dict:
     """Return a GeoJSON Polygon bbox centred on (lat, lon)."""
     return {
         "type": "Polygon",
@@ -55,7 +55,7 @@ def extract_all(
     lon: float,
     start_date: str,
     end_date: str,
-    max_cloud: int = 30,
+    max_cloud: int = 80,
     buffer_deg: float = 0.01,
 ) -> dict:
     """
@@ -81,6 +81,11 @@ def extract_all(
     -------
     dict with keys: "weather", "soil", "sentinel"
     """
+    if not (-90 <= lat <= 90):
+        raise ValueError(f"lat must be between -90 and 90, got {lat}.")
+    if not (-180 <= lon <= 180):
+        raise ValueError(f"lon must be between -180 and 180, got {lon}.")
+
     print(f"[extract] Location : lat={lat}, lon={lon}")
     print(f"[extract] Period   : {start_date} → {end_date}")
 
@@ -94,7 +99,7 @@ def extract_all(
 
     # --- Sentinel-2 --------------------------------------------------------
     print("[extract] Searching Sentinel-2 scenes …")
-    geometry = _point_geometry(lat, lon, buffer_deg)
+    geometry = point_geometry(lat, lon, buffer_deg)
     items = search_items(geometry, start_date, end_date, max_cloud=max_cloud)
     sentinel = [
         {

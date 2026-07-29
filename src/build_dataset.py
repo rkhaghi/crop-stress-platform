@@ -31,7 +31,7 @@ import pandas as pd
 # Ensure src/ is importable
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from extract import extract_all, _point_geometry
+from extract import extract_all, point_geometry
 from processing.raster_clip import load_band_array
 from features.satellite_features import extract_satellite_features
 from features.weather_features import build_weather_features
@@ -99,7 +99,7 @@ def _extract_row(row: pd.Series) -> dict | None:
         raw = extract_all(lat=lat, lon=lon, start_date=start_date, end_date=end_date)
 
         # Step 2 — satellite features
-        geometry  = _point_geometry(lat, lon)
+        geometry  = point_geometry(lat, lon)
         sat_feats = _load_satellite_features(raw["sentinel"], geometry)
 
         # Step 3 — weather + soil features

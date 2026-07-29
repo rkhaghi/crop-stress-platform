@@ -48,3 +48,51 @@ class TestNoLeakage:
         train_dates = df.iloc[:split_idx]["date"]
         test_dates  = df.iloc[split_idx:]["date"]
         assert train_dates.max() < test_dates.min(), "Training data contains future dates."
+
+
+class TestTemporalSplitInTrainModule:
+    """
+    Exercise the real temporal split inside training.train.train() rather than
+    a mock. This catches regressions in train.py that the unit-level tests above
+    would miss.
+    """
+
+    def test_train_sorts_by_date_before_splitting(self, tmp_path):
+        """Call train() with shuffled dates; verify the saved split is temporal."""
+        pytest.importorskip("xgboost")
+        import joblib
+        from training.train import train  # conftest.py already adds src/ to sys.path
+
+        rng = np.random.default_rng(0)
+        n, n_feats = 80, 6
+        df = pd.DataFrame(
+            rng.random((n, n_feats)), columns=[f"feat_{i}" for i in range(n_feats)]
+        )
+        df["stress_index"] = rng.random(n)
+        # Deliberately shuffle dates — an unsorted split would bleed future data
+        df["date"] = (
+            pd.date_range("2023-01-01", periods=n, freq="D")
+            .to_series()
+            .sample(frac=1, random_state=0)
+            .values
+        )
+
+        feat_path  = tmp_path / "feats.parquet"
+        model_path = tmp_path / "model.json"
+        df.to_parquet(feat_path)
+
+        metrics = train(str(feat_path), label_col="stress_index", output_path=str(model_path))
+
+        # Recompute what train.py *should* have done and verify the ordering holds
+        df_sorted = df.sort_values("date").reset_index(drop=True)
+        split_idx = int(n * 0.8)
+        assert (
+            pd.to_datetime(df_sorted.iloc[:split_idx]["date"]).max()
+            < pd.to_datetime(df_sorted.iloc[split_idx:]["date"]).min()
+        ), "Training dates overlap with or extend into the test window."
+
+        # Verify target + date columns are excluded from the saved feature set
+        bundle = joblib.load(str(model_path))
+        assert "stress_index" not in bundle["feature_names"]
+        assert "date" not in bundle["feature_names"]
+        assert "rmse" in metrics

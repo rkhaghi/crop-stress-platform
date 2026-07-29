@@ -78,8 +78,8 @@ def handler(event: dict, context) -> dict:
         soil_feats    = raw["soil"]
 
         # Use the most recent valid Sentinel-2 scene
-        from extract import _point_geometry
-        geometry  = _point_geometry(lat, lon)
+        from extract import point_geometry
+        geometry  = point_geometry(lat, lon)
         sat_feats = {}
 
         for scene in raw["sentinel"]:

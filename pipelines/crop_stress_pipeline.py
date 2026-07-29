@@ -7,10 +7,7 @@ End-to-end orchestration pipeline: ingest → process → featurise → predict.
 Can be run locally or triggered by AWS Step Functions.
 
 Usage:
-    python pipelines/crop_stress_pipeline.py \
-        --lat 51.5 --lon -1.2 \
-        --start 2024-04-01 --end 2024-06-30 \
-        --model models/crop_stress_model.json
+    python pipelines/crop_stress_pipeline.py  --lat 51.5 --lon -1.2 --start 2024-04-01 --end 2024-06-30 --model models/crop_stress_model.json
 """
 import argparse
 import json
@@ -32,7 +29,7 @@ def run_pipeline(
     start_date: str,
     end_date: str,
     model_path: str,
-    max_cloud: int = 30,
+    max_cloud: int = 80,
 ) -> dict:
     """
     Full crop-stress prediction pipeline for a single location and date window.
@@ -123,7 +120,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--start",     type=str,   required=True)
     parser.add_argument("--end",       type=str,   required=True)
     parser.add_argument("--model",     type=str,   required=True)
-    parser.add_argument("--max-cloud", type=int,   default=30)
+    parser.add_argument("--max-cloud", type=int,   default=80)
     parser.add_argument("--output",    type=str,   default=None)
     return parser.parse_args()
 

@@ -9,15 +9,14 @@ import joblib
 import numpy as np
 
 
-_MODEL_BUNDLE = None  # module-level cache so Lambda container reuses it
+_MODEL_CACHE: dict[str, dict] = {}  # keyed by path — safe across model updates
 
 
 def _load_model(model_path: str) -> dict:
-    """Load model bundle from disk (cached after first call)."""
-    global _MODEL_BUNDLE
-    if _MODEL_BUNDLE is None:
-        _MODEL_BUNDLE = joblib.load(model_path)
-    return _MODEL_BUNDLE
+    """Load model bundle from disk; cached per path so Lambda reuse is safe."""
+    if model_path not in _MODEL_CACHE:
+        _MODEL_CACHE[model_path] = joblib.load(model_path)
+    return _MODEL_CACHE[model_path]
 
 
 def predict(feature_vector: dict, model_path: str | None = None) -> dict:
