@@ -18,6 +18,8 @@ import os
 import sys
 from typing import Optional
 
+import ipdb
+
 # Ensure src/ is on the path when running interactively or as a script
 _src_dir = os.path.dirname(os.path.abspath(__file__)) if "__file__" in dir() else os.path.abspath("src")
 if _src_dir not in sys.path:
@@ -147,7 +149,7 @@ if __name__ == "__main__":
         max_cloud=args.max_cloud,
         buffer_deg=args.buffer,
     )
-
+       #breakpoint created by ipdb
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, default=str)
