@@ -5,11 +5,11 @@ __pycache__/
 *.pyo
 .Python
 
-# Environments
-.env
-.venv
-venv/
-env/
+# # Environments
+# .env
+# .venv
+# venv/
+# env/
 
 # Jupyter
 .ipynb_checkpoints/
