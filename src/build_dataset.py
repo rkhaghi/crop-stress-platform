@@ -711,3 +711,4 @@ if __name__ == "__main__":
         locations_path=arguments.locations,
         output_path=arguments.output,
     )
+# %%

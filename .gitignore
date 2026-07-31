@@ -5,11 +5,11 @@ __pycache__/
 *.pyo
 .Python
 
-# Environments
-.env
-.venv
-venv/
-env/
+# # Environments
+# .env
+# .venv
+# venv/
+# env/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -21,14 +21,14 @@ htmlcov/
 .coverage
 coverage.xml
 
-# Data & models (too large for git)
-data/
-models/
-*.parquet
-*.csv
-*.h5
-*.pkl
-*.joblib
+# # Data & models (too large for git)
+# data/
+# models/
+# *.parquet
+# *.csv
+# *.h5
+# *.pkl
+# *.joblib
 
 # Results / outputs
 results.json
