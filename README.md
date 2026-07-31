@@ -40,4 +40,3 @@ COPERNICUS_EMAIL=your@email.com
 COPERNICUS_PASSWORD=yourpassword
 SH_INSTANCE_ID=your-sentinel-hub-instance-id
 ```
-
