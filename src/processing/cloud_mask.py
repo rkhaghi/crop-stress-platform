@@ -44,3 +44,5 @@ def apply_mask(band_array: np.ndarray, mask: np.ndarray, fill_value: float = np.
 def valid_pixel_fraction(mask: np.ndarray) -> float:
     """Return the fraction (0–1) of valid pixels in a mask."""
     return float(mask.sum()) / mask.size
+
+# %%
