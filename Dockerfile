@@ -1,10 +1,10 @@
 FROM public.ecr.aws/lambda/python:3.11
 
 
-RUN dnf install -y \
+RUN yum install -y \
     gdal \
     gdal-devel \
-    && dnf clean all
+    && yum clean all
 
 
 COPY requirements.txt .
