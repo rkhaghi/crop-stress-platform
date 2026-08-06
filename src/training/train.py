@@ -5,12 +5,16 @@ train.py
 Train an XGBoost regressor to predict crop stress index from feature vectors.
 
 Usage:
-    python src/training/train.py --features data/features.parquet \
-                                  --label stress_index \
-                                  --output models/crop_stress_model.json
+    python src/training/train.py --features data/features.parquet --label stress_index  --output models/crop_stress_model.json
 """
 import argparse
+import os
 import pathlib
+import sys
+
+SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
 
 import joblib
 import pandas as pd
@@ -51,9 +55,11 @@ def train(
     if "date" in df.columns:
         df = df.sort_values("date").reset_index(drop=True)
 
-    # Exclude non-feature columns
     exclude_cols = {label_col, "date"}
-    feature_cols = [c for c in df.columns if c not in exclude_cols]
+    feature_cols = [
+        c for c in df.columns
+        if c not in exclude_cols and pd.api.types.is_numeric_dtype(df[c])
+    ]
 
     split_idx = int(len(df) * (1 - test_size))
     train_df = df.iloc[:split_idx]
