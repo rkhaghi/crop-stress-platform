@@ -261,7 +261,6 @@ def align_array_to_reference(
     destination_crs = reference_metadata.get("crs")
     destination_transform = reference_metadata.get("transform")
     destination_height = reference_metadata.get("height")
-    ipdb.set_trace()
     destination_width = reference_metadata.get("width")
 
     if source_crs is None or source_transform is None:
