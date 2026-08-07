@@ -5,17 +5,26 @@ predictor.py
 Load a trained model bundle and run inference on a feature vector.
 """
 import os
+import tempfile
 import joblib
+import boto3
 import numpy as np
 
 
-_MODEL_CACHE: dict[str, dict] = {}  # keyed by path — safe across model updates
+_MODEL_CACHE: dict[str, dict] = {}
 
 
 def _load_model(model_path: str) -> dict:
-    """Load model bundle from disk; cached per path so Lambda reuse is safe."""
     if model_path not in _MODEL_CACHE:
-        _MODEL_CACHE[model_path] = joblib.load(model_path)
+        if model_path.startswith("s3://"):
+            # Download from S3 to /tmp/ then load
+            parts = model_path[5:].split("/", 1)
+            bucket, key = parts[0], parts[1]
+            local_path = os.path.join(tempfile.gettempdir(), "model.joblib")
+            boto3.client("s3").download_file(bucket, key, local_path)
+            _MODEL_CACHE[model_path] = joblib.load(local_path)
+        else:
+            _MODEL_CACHE[model_path] = joblib.load(model_path)
     return _MODEL_CACHE[model_path]
 
 
