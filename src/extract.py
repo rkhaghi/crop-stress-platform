@@ -147,7 +147,7 @@ if __name__ == "__main__":
         max_cloud=args.max_cloud,
         buffer_deg=args.buffer,
     )
-       #breakpoint created by ipdb
+      
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, default=str)

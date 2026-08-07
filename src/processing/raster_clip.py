@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import ipdb
+
 import numpy as np
 import rasterio
 from rasterio.crs import CRS
