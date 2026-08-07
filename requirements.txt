@@ -1,6 +1,7 @@
 # Core ingestion
 requests>=2.31
 pystac-client>=0.7
+python-dotenv>=1.0
 
 # Processing
 numpy>=1.26,<2.0
