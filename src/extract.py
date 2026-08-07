@@ -95,7 +95,11 @@ def extract_all(
 
     # --- Soil --------------------------------------------------------------
     print("[extract] Fetching soil properties …")
-    soil = fetch_soil(lat, lon)
+    try:
+        soil = fetch_soil(lat, lon)
+    except RuntimeError as exc:
+        print(f"[extract] Soil fetch failed, continuing without soil data: {exc}")
+        soil = {}
 
     # --- Sentinel-2 --------------------------------------------------------
     print("[extract] Searching Sentinel-2 scenes …")
