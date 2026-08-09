@@ -35,8 +35,8 @@ with st.sidebar:
     st.header("Lambda endpoint")
     lambda_url = st.text_input(
         "API Gateway URL",
-        value=os.getenv("LAMBDA_URL", ""),
-        placeholder="https://<id>.execute-api.eu-west-1.amazonaws.com/predict",
+        value=os.getenv("LAMBDA_URL", "https://6z4ftb4cig.execute-api.eu-west-1.amazonaws.com/predict"),
+        placeholder="https://6z4ftb4cig.execute-api.eu-west-1.amazonaws.com/predict",
     )
     run_btn = st.button("Run analysis", type="primary")
 
