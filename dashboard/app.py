@@ -35,8 +35,8 @@ with st.sidebar:
     st.header("Lambda endpoint")
     lambda_url = st.text_input(
         "API Gateway URL",
-        value=os.getenv("LAMBDA_URL", "https://6z4ftb4cig.execute-api.eu-west-1.amazonaws.com/predict"),
-        placeholder="https://6z4ftb4cig.execute-api.eu-west-1.amazonaws.com/predict",
+        value=os.getenv("LAMBDA_URL", "https://bzeqptxosby22wro4bt6v5ea3y0gtdyn.lambda-url.eu-west-1.on.aws/"),
+        placeholder="https://<id>.lambda-url.eu-west-1.on.aws/",
     )
     run_btn = st.button("Run analysis", type="primary")
 
@@ -66,9 +66,9 @@ if run_btn:
         st.error(f"Lambda returned {resp.status_code}: {resp.text}")
         st.stop()
 
-    # Lambda wraps body as a JSON string when called via API Gateway
+    # Lambda Function URL returns body directly; API Gateway wraps it in {"body": "..."}
     raw_body = resp.json()
-    data = json.loads(raw_body["body"]) if "body" in raw_body else raw_body
+    data = json.loads(raw_body["body"]) if isinstance(raw_body.get("body"), str) else raw_body
 
     # --- Stress result ------------------------------------------------------
     st.subheader("Crop Stress Prediction")
