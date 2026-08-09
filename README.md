@@ -1,4 +1,4 @@
-# TerraSignal — Crop Stress Platform
+# TerraSignal: Crop Stress Platform
 
 ML platform for predicting crop stress in UK arable fields using Sentinel-2 satellite imagery, weather, and soil data.
 
