@@ -13,13 +13,24 @@ in the sidebar at runtime.
 import json
 import os
 
+from dotenv import load_dotenv
 import requests
+
+load_dotenv()
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 
 st.set_page_config(page_title="TerraSignal — Crop Stress Monitor", layout="wide")
 st.title("🌾 TerraSignal — Crop Stress Monitor")
+
+# ---------------------------------------------------------------------------
+# Simple password gate
+# ---------------------------------------------------------------------------
+_APP_PASSWORD = os.getenv("APP_PASSWORD", "terrasignal2024")
+pwd = st.text_input("Enter access password", type="password")
+if pwd != _APP_PASSWORD:
+    st.stop()
 
 # ---------------------------------------------------------------------------
 # Sidebar inputs
