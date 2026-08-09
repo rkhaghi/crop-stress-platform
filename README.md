@@ -2,6 +2,10 @@
 
 ML platform for predicting crop stress in UK arable fields using Sentinel-2 satellite imagery, weather, and soil data.
 
+## Architecture
+
+![Architecture](docs/architecture.png)
+
 ## Overview
 
 ```
