@@ -17,19 +17,15 @@ Environment variables required:
 """
 import json
 import os
-import tempfile
 import traceback
+import tempfile
 
 import numpy as np
-from rasterio.warp import Resampling
 
-from extract import extract_all, point_geometry
-from ingestion.cdse_s3 import download_asset
-from processing.raster_clip import (
-    align_array_to_reference,
-    grids_match,
-    load_band_with_metadata,
-)
+from extract import extract_all
+from ingestion.sentinel_stac import get_asset_urls
+from processing.raster_clip import load_band_array
+from processing.cloud_mask import build_cloud_mask
 from features.satellite_features import extract_satellite_features
 from features.weather_features import build_weather_features
 from features.build_features import build_feature_vector
@@ -38,7 +34,7 @@ from inference.predictor import predict
 
 def _load_bands(assets: dict, geometry: dict) -> tuple[dict, np.ndarray] | tuple[None, None]:
     """
-    Download via CDSE S3, clip, scale, and align all bands for one scene.
+    Download and clip all required bands for one Sentinel-2 scene.
 
     Returns (bands_dict, scl_array) or (None, None) if any band is missing.
     """
@@ -47,58 +43,33 @@ def _load_bands(assets: dict, geometry: dict) -> tuple[dict, np.ndarray] | tuple
         return None, None
 
     try:
-        with tempfile.TemporaryDirectory() as tmp:
-            paths = {}
-            for name in required:
-                dest = os.path.join(tmp, f"{name}.jp2")
-                download_asset(assets[name], dest)
-                paths[name] = dest
-
-            red,      ref_meta  = load_band_with_metadata(paths["red"],      geometry)
-            nir,      nir_meta  = load_band_with_metadata(paths["nir"],      geometry)
-            red_edge, re_meta   = load_band_with_metadata(paths["red_edge"], geometry)
-            swir1,    sw1_meta  = load_band_with_metadata(paths["swir1"],    geometry)
-            swir2,    sw2_meta  = load_band_with_metadata(paths["swir2"],    geometry)
-            scl_raw,  scl_meta  = load_band_with_metadata(
-                paths["scene_classification"], geometry, scale=1.0, zero_is_nodata=False
-            )
-
-            def _align(arr, meta):
-                if grids_match(meta, ref_meta):
-                    return arr
-                return align_array_to_reference(arr, meta, ref_meta, Resampling.bilinear)
-
-            def _align_nearest(arr, meta):
-                if grids_match(meta, ref_meta):
-                    return arr
-                return align_array_to_reference(arr, meta, ref_meta, Resampling.nearest)
-
-            bands = {
-                "red":      red,
-                "nir":      _align(nir,      nir_meta),
-                "red_edge": _align(red_edge, re_meta),
-                "swir1":    _align(swir1,    sw1_meta),
-                "swir2":    _align(swir2,    sw2_meta),
-            }
-            scl = _align_nearest(scl_raw, scl_meta).astype(np.uint8)
-
+        bands = {
+            "red":      load_band_array(assets["red"],      geometry),
+            "nir":      load_band_array(assets["nir"],      geometry),
+            "red_edge": load_band_array(assets["red_edge"], geometry),
+            "swir1":    load_band_array(assets["swir1"],    geometry),
+            "swir2":    load_band_array(assets["swir2"],    geometry),
+        }
+        scl = load_band_array(assets["scene_classification"], geometry, scale=1.0).astype(np.uint8)
         return bands, scl
     except Exception as exc:
-        print(f"[handler] Band load failed: {exc}")
+        print(f"[handler] Band download failed: {exc}")
         return None, None
 
 
-def lambda_handler(event: dict, context) -> dict:
+def handler(event: dict, context) -> dict:
     """
     AWS Lambda handler.
 
     Returns an API-Gateway-compatible response dict.
     """
     try:
-        lat        = float(event["lat"])
-        lon        = float(event["lon"])
-        start_date = event["start_date"]
-        end_date   = event["end_date"]
+        # API Gateway wraps the POST body in event["body"]; direct invocations pass fields top-level
+        body = json.loads(event["body"]) if "body" in event else event
+        lat        = float(body["lat"])
+        lon        = float(body["lon"])
+        start_date = body["start_date"]
+        end_date   = body["end_date"]
 
         # --- Ingest raw data ------------------------------------------------
         raw = extract_all(lat=lat, lon=lon, start_date=start_date, end_date=end_date)
@@ -109,6 +80,7 @@ def lambda_handler(event: dict, context) -> dict:
         soil_feats    = raw["soil"]
 
         # Use the most recent valid Sentinel-2 scene
+        from extract import point_geometry
         geometry  = point_geometry(lat, lon)
         sat_feats = {}
 
@@ -129,6 +101,12 @@ def lambda_handler(event: dict, context) -> dict:
         # --- Predict --------------------------------------------------------
         result = predict(feature_vec)
 
+        # Strip large asset URL dicts — dashboard only needs scene metadata
+        sentinel_meta = [
+            {"id": s["id"], "date": s["date"], "cloud_cover": s["cloud_cover"]}
+            for s in raw["sentinel"]
+        ]
+
         return {
             "statusCode": 200,
             "body": json.dumps({
@@ -137,7 +115,10 @@ def lambda_handler(event: dict, context) -> dict:
                 "start_date": start_date,
                 "end_date": end_date,
                 **result,
-            }),
+                "weather": raw["weather"],
+                "soil": raw["soil"],
+                "sentinel": sentinel_meta,
+            }, default=str),
         }
 
     except KeyError as exc:
