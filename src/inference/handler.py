@@ -57,7 +57,7 @@ def _load_bands(assets: dict, geometry: dict) -> tuple[dict, np.ndarray] | tuple
         return None, None
 
 
-def handler(event: dict, context) -> dict:
+def lambda_handler(event: dict, context) -> dict:
     """
     AWS Lambda handler.
 
