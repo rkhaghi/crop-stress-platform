@@ -4,7 +4,9 @@ ML platform for predicting crop stress in UK arable fields using Sentinel-2 sate
 
 ## Architecture
 
-![Architecture](docs/architecture.png)
+<p align="center">
+  <img src="docs/architecture.png" width="900"/>
+</p>
 
 ## Overview
 
